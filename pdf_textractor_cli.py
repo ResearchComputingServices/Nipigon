@@ -71,7 +71,7 @@ def extract_command_line_args() -> dict:
     
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# python pdf_textractor_cli.py --pdf ./EMN 2020-1.pdf --labels ./data/exp9/labels/ --out output.json
+# python pdf_textractor_cli.py --pdf "./EMN 2020-1.pdf" --labels ./data/exp9/labels/ --out output.json
 
 def main():
 
