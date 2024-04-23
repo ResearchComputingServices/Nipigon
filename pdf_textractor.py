@@ -65,7 +65,21 @@ def pdf_extract_text(pdf_file_path : str,
 
 def pdf_textractor( pdf_file_path : str,
                     image_output_path : str,
-                    label_file_output_path : str)-> ExtractedDocument:
+                    label_file_output_path : str,
+                    pages = [])-> ExtractedDocument:
+    """This function runs the complete analysis pipeline. Starting from an PDF file, it runs the intelligent
+    document analysis code. The output of this is than used to extract the text from the PDF and store it in
+    a JSON dicitionary.
+
+    Args:
+        pdf_file_path (str): location of PDF to extract text from
+        image_output_path (str): location to save annotated images of document images
+        label_file_output_path (str): location of label files
+        pages (list, optional): Pages to include in analysis, if empyt all pages are analyzed. Defaults to [].
+
+    Returns:
+        ExtractedDocument: _description_
+    """
     
     if not os.path.isfile(pdf_file_path):
         logging.error(f'PDF not found at {pdf_file_path}')

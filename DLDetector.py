@@ -3,6 +3,7 @@ import logging
 import uuid
 
 import fitz
+from numpy import arange
 
 from yolov5.detect import run as yolov5_run
 
@@ -55,13 +56,18 @@ def save_pdf_page_image(page : fitz.Page,
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def save_pdf_document_images(   pdf_file_path : str,
-                                output_dir_path : str) -> None:
+                                output_dir_path : str,
+                                include_pages = []) -> None:
 
     try:
         fitz_doc = fitz.open(pdf_file_path)
 
+        if len(include_pages) == 0:
+            include_pages = arange(0,len(fitz_doc))
+
         for page_number, page in enumerate(fitz_doc):
-            save_pdf_page_image(page, output_dir_path, page_number)
+            if page_number in include_pages:
+                save_pdf_page_image(page, output_dir_path, page_number)
     
     except fitz.FileNotFoundError:
         logging.error(f'Could not open file: {pdf_file_path}')
@@ -72,11 +78,15 @@ def save_pdf_document_images(   pdf_file_path : str,
 def perform_document_layout_analysis(pdf_file_path : str,
                                      image_output_path : str,
                                      label_file_output_path : str,
-                                     output_name = None):
-   
+                                     output_name = None,
+                                     include_pages = []):
+    
+    # get the images of the document pages
     save_pdf_document_images(pdf_file_path, 
-                             image_output_path)
+                             image_output_path,
+                             include_pages)
 
+    # run the object detector on each page image
     run_object_detection(source_path=image_output_path,
                          output_path=label_file_output_path,
                          output_name=output_name)
