@@ -1,4 +1,5 @@
 from BoundingBox import BoundingBox
+import numpy as np
 
 class BoundingBoxGenerator:
     
@@ -14,24 +15,22 @@ class BoundingBoxGenerator:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       
-    def get_bounding_boxes_from_file(self,
-                                     file_path : str,
-                                     sort_boxes = True,
-                                     clean_boxes = True) -> list:
-        try:
-            bounding_box_file = open(file_path,'r',encoding='utf-8')
-            
-            bounding_boxes = self._generate_bounding_boxes(bounding_box_file.readlines())
+    def get_bounding_boxes_from_np_array(   self,
+                                            labels : np.array,
+                                            sort_boxes = True,
+                                            clean_boxes = True) -> list:              
+        bounding_boxes = []
 
-            if sort_boxes:
-                bounding_boxes.sort()
+        for labelled_bb in labels:
+            bounding_boxes.append(self._generate_bounding_boxes(labelled_bb))
 
-            if clean_boxes:
-                bounding_boxes = self._clean_boxes(bounding_boxes)
+       
+        if sort_boxes:
+            bounding_boxes.sort()
+
+        if clean_boxes:
+            bounding_boxes = self._clean_boxes(bounding_boxes)
         
-        except FileNotFoundError:
-            print(f'label file not found: {file_path}')
-
         return bounding_boxes
  
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,15 +57,16 @@ class BoundingBoxGenerator:
         
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     def _generate_bounding_boxes(self,
-                                 file_lines : list) -> list:
+                                 labelled_bounding_box : list) -> list:
     
-        bounding_boxes = []
+        x0 = labelled_bounding_box[0]
+        y0 = labelled_bounding_box[1]
+        x1 = labelled_bounding_box[2]
+        y1 = labelled_bounding_box[3]
+        conf = labelled_bounding_box[4]
+        label = self.label_dict[str(int(labelled_bounding_box[5]))]
 
-        for line in file_lines:
-            x0,y0,x1,y1,label,conf = self._read_bounding_box_line(line)
-            bounding_boxes.append(BoundingBox(x0,y0,x1,y1,label,conf))
-
-        return bounding_boxes
+        return BoundingBox(x0,y0,x1,y1,label,conf)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
