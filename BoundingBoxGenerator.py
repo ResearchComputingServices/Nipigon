@@ -21,9 +21,10 @@ class BoundingBoxGenerator:
                                             clean_boxes = True) -> list:              
         bounding_boxes = []
 
+        # labels = [ labelled_bb ]
+        # labelled_bb  = [xmin, ymin, xmax, ymax, confidence, class]
         for labelled_bb in labels:
             bounding_boxes.append(self._generate_bounding_boxes(labelled_bb))
-
        
         if sort_boxes:
             bounding_boxes.sort()
