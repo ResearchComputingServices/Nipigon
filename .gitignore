@@ -4,5 +4,4 @@ __pycache__/
 *.log
 .old/
 .output/
-test.py
 output.json
