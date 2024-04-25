@@ -1,5 +1,21 @@
 from fitz import Rect
 
+import numpy as np
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+LABEL_DICT = {  '0':  'Caption',
+                '1':  'Footnote',
+                '2':  'Formula',
+                '3':  'List-item',
+                '4':  'Page-footer',
+                '5':  'Page-header',
+                '6':  'Picture',
+                '7':  'Section-header',
+                '8':  'Table',
+                '9':  'Text',
+                '10': 'Title'}
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class BoundingBox:
@@ -120,7 +136,62 @@ class BoundingBox:
                  bb.y0 >= self.y0 and bb.y0 <= self.y1 and
                  bb.y1 >= self.y0 and bb.y1 <= self.y1)
 
+# ==============================================================================
+
+def remove_overlapping_boxes(bounding_boxes : list) -> list:
+        
+    cleaned_boxes = []
+    
+    for i, box_a in enumerate(bounding_boxes):
+        
+        keep_box = True
+        
+        for j, box_b in enumerate(bounding_boxes):
+            if i == j:
+                continue
+            
+            if box_a.overlaps(box_b) and box_b.confidence > box_a.confidence:
+                keep_box = False
+    
+        if keep_box:
+            cleaned_boxes.append(box_a)
+    
+    return cleaned_boxes
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def generate_bounding_box(labelled_bounding_box : list) -> list:
+    
+        x0 = labelled_bounding_box[0]
+        y0 = labelled_bounding_box[1]
+        x1 = labelled_bounding_box[2]
+        y1 = labelled_bounding_box[3]
+        conf = labelled_bounding_box[4]
+        label = LABEL_DICT[str(int(labelled_bounding_box[5]))]
+
+        return BoundingBox(x0,y0,x1,y1,label,conf)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def generate_bounding_boxes(labels : np.array,
+                            sort_boxes = True,
+                            clean_boxes = True) -> list:              
+        bounding_boxes = []
+
+        # labels = [ labelled_bb ]
+        # labelled_bb  = [xmin, ymin, xmax, ymax, confidence, class]
+        for labelled_bb in labels:
+            bounding_boxes.append(generate_bounding_box(labelled_bb))
+       
+        if sort_boxes:
+            bounding_boxes.sort()
+
+        if clean_boxes:
+            bounding_boxes = remove_overlapping_boxes(bounding_boxes)
+        
+        return bounding_boxes
+
+# ==============================================================================
 
 def main():
     bb1 = BoundingBox(1,1,10,2,'test',0.)
