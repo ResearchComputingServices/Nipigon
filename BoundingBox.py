@@ -191,35 +191,3 @@ def generate_bounding_boxes(labels : np.array,
         
         return bounding_boxes
 
-# ==============================================================================
-
-def main():
-    bb1 = BoundingBox(1,1,10,2,'test',0.)
-    bb2 = BoundingBox(5,0,6,10,'test',0.)
-    bb3 = BoundingBox(5,1,6,2,'test',0)
-    
-    if bb1.contains(bb2):
-        print('bb1 contains bb2')
-    else:
-        print('bb2 NOT inside bb1')
-    
-    if bb1.overlaps(bb2):
-        print('bb1 overlaps bb2')
-    else:
-        print('bb1 does not overlap bb2')
-
-    if bb1.contains(bb3):
-        print('bb1 contains bb3')
-    else:
-        print('bb1 does Not contain bb3')
-        
-    if bb1.overlaps(bb3):
-        print('bb1 overlaps bb3')
-    else:
-        print('bb1 does not overlap bb3')
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-if __name__ == '__main__':
-    main()
