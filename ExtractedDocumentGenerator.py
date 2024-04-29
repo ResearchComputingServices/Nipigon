@@ -45,7 +45,7 @@ def clean_text(original_text : str) -> str:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class ExtractedBoxGenerator:
+class ExtractedDocumentGenerator:
     
     def __init__(   self,
                     path_to_weights = DEFAULT_MODEL_WEIGHTS_PATH,

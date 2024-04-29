@@ -1,4 +1,4 @@
-from ExtractedDocumentGenerator import ExtractedBoxGenerator
+from ExtractedDocumentGenerator import ExtractedDocumentGenerator
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -6,7 +6,7 @@ def main():
     
     pdf_file_path = 'data/sample.pdf'
     
-    doc_gen = ExtractedBoxGenerator()
+    doc_gen = ExtractedDocumentGenerator()
     
     extract_doc = doc_gen.extract(pdf_file_path)
 
