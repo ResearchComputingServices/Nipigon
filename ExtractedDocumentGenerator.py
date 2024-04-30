@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import torch
-
+from PIL import Image, ImageDraw
 import fitz
 
 from BoundingBox import generate_bounding_boxes
@@ -15,14 +15,162 @@ DEFAULT_MODEL_LOCATION = 'ultralytics/yolov5'
 DEFAULT_MODEL_TYPE = 'custom'
 
 DEFAULT_ROOT_OUTPUT_PATH = '.output/'
-DEFAULT_PDF_PAGE_IMAGE_OUTPUT_PATH = os.path.join(DEFAULT_ROOT_OUTPUT_PATH, 'pdf_page_images')
-DEFAULT_ANNOTATED_IMAGE_OUTPUT_PATH = os.path.join(DEFAULT_ROOT_OUTPUT_PATH, 'annotated_images')
-DEFAULT_LABEL_OUTPUT_PATH = os.path.join(DEFAULT_ROOT_OUTPUT_PATH, 'labels')
+PDF_IMAGE_DIR_PATH = 'pdf_page_images'
+ANNOTATED_IMAGE_PATH = 'annotated_images'
+DEFAULT_PDF_PAGE_IMAGE_OUTPUT_PATH = os.path.join(DEFAULT_ROOT_OUTPUT_PATH, PDF_IMAGE_DIR_PATH)
+DEFAULT_ANNOTATED_IMAGE_OUTPUT_PATH = os.path.join(DEFAULT_ROOT_OUTPUT_PATH, ANNOTATED_IMAGE_PATH)
+
+COLOURS = ['red','blue','green','orange','purple',
+'skyblue',
+'oldlace',
+'mediumseagreen',
+'darkgrey',
+'lightsteelblue',
+'chocolate',
+'palegreen',
+'ghostwhite',
+'lightyellow',
+'midnightblue',
+'tan',
+'papayawhip',
+'darkcyan',
+'oyalblue',
+'seagreen',
+'powderblue',
+'lightslategray',
+'navajowhite',
+'bisque',
+'burlywood',
+'goldenrod',
+'yellow',
+'darkkhaki',
+'mediumpurple ',
+'turquoise',
+'silver',
+'deepskyblue',
+'azure',
+'dimgray',
+'darkblue',
+'lime',
+'aquamarine',
+'gainsboro',
+'wheat',
+'mediumvioletred',
+'grey',
+'sandybrown',
+'dimgrey',
+'lavenderblush',
+'mediumspringgreen',
+'black',
+'honeydew',
+'sienna',
+'teal',
+'mediumaquamarine',
+'darkolivegreen',
+'lightcoral',
+'slategray',
+'orchid',
+'yellowgreen',
+'darkgray',
+'seashell',
+'violet',
+'slategrey',
+'coral',
+'navy',
+'olive',
+'lawngreen',
+'pink',
+'cyan',
+'floralwhite',
+'darkseagreen',
+'tomato',
+'cadetblue',
+'green',
+'cornsilk',
+'lightgoldenrodyellow',
+'lightgrey',
+'rebeccapurple',
+'darkgreen',
+'lavender',
+'lightcyan',
+'indianred',
+'lightsalmon',
+'moccasin',
+'mediumorchid',
+'mediumslateblue',
+'darkorange',
+'dodgerblue',
+'indigo',
+'salmon',
+'deeppink',
+'orangered',
+'darkorchid',
+'maroon',
+'linen',
+'aliceblue',
+'beige',
+'palegoldenrod',
+'darkred',
+'lightblue',
+'brown',
+'lightgray',
+'antiquewhite',
+'aqua',
+'darkslategray',
+'steelblue',
+'orange',
+'thistle',
+'darksalmon',
+'lemonchiffon',
+'fuchsia',
+'blanchedalmond',
+'khaki',
+'darkgoldenrod',
+'hotpink',
+'lightslategrey',
+'whitesmoke',
+'magenta',
+'chartreuse',
+'lightseagreen',
+'slateblue',
+'rosybrown',
+'red',
+'olivedrab',
+'lightskyblue',
+'crimson',
+'darkslategrey',
+'mintcream',
+'mistyrose',
+'darkturquoise',
+'gray',
+'lightgreen',
+'cornflowerblue',
+'darkslateblue',
+'mediumturquoise',
+'mediumblue',
+'saddlebrown',
+'limegreen',
+'lightpink',
+'peachpuff',
+'blueviolet',
+'firebrick',
+'palevioletred',
+'paleturquoise',
+'darkviolet',
+'gold',
+'forestgreen',
+'peru',
+'darkmagenta',
+'blue',
+'greenyellow',
+'plum',
+'springgreen']
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def clean_text(original_text : str) -> str:
-    """this function returns cleaned version of the input string with new lines and non printable ascii characters removed.
+    """this function returns cleaned version of the input string with new
+    lines and non printable ascii characters removed.
 
     Args:
         original_text (str): string which required cleaning
@@ -31,12 +179,12 @@ def clean_text(original_text : str) -> str:
         str: cleaned string
     """
     cleaned_text = ''
-    
+
     for char in original_text:
         # replace new line with space
         if ord(char) == 10:
             char = ' '
-        
+
         # only add printable ascii characters
         if ord(char) > 31 and ord(char) < 127:
             cleaned_text += char
@@ -46,139 +194,201 @@ def clean_text(original_text : str) -> str:
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 class ExtractedDocumentGenerator:
-    
+    """This classes uses the a fine-tuned object detection model to extract
+    extract from a pdf in an intelligent way
+    """
+
     def __init__(   self,
                     path_to_weights = DEFAULT_MODEL_WEIGHTS_PATH,
                     model_path = DEFAULT_MODEL_LOCATION,
-                    model_type = DEFAULT_MODEL_TYPE):
-        
+                    model_type = DEFAULT_MODEL_TYPE,
+                    output_path = DEFAULT_ROOT_OUTPUT_PATH):
+
         self.model = None
-        self._load_model(path_to_weights=path_to_weights,
-                         model_type=model_type,
-                         model_path=model_path)
-              
-    
+        self._load_model(   path_to_weights=path_to_weights,
+                            model_type=model_type,
+                            model_path=model_path)
+
+        self.output_path = output_path
+        self.pdf_image_output_path =  os.path.join(self.output_path, PDF_IMAGE_DIR_PATH)
+        self.annoted_image_output_path = os.path.join(self.output_path, ANNOTATED_IMAGE_PATH)
+        self._check_output_directory_paths()
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-       
+
     def _load_model(self,
                     path_to_weights = DEFAULT_MODEL_WEIGHTS_PATH,
                     model_path = DEFAULT_MODEL_LOCATION,
                     model_type = DEFAULT_MODEL_TYPE) -> None:
-        
-        self.model = torch.hub.load(repo_or_dir=model_path, 
+
+        self.model = torch.hub.load(repo_or_dir=model_path,
                                     model=model_type,
                                     path=path_to_weights)
-    
-    
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    def _check_pdf_file_path(self,
-                             pdf_file_path : str):
-        
+
+    def _check_pdf_file_path(   self,
+                                pdf_file_path : str):
+
         if not os.path.isfile(pdf_file_path):
             raise FileNotFoundError
-        
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        
-    def _check_directory_path(self,
-                              dir_path : str) -> None:
-        
+
+    def _check_directory_path(  self,
+                                dir_path : str) -> None:
+
         if not os.path.exists(dir_path):
-            try: 
-                os.mkdir(dir_path)    
-            except OSError as error:  
-                raise OSError from error 
-     
+            try:
+                os.mkdir(dir_path)
+            except OSError as error:
+                raise OSError from error
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     def _check_output_directory_paths(self) -> None:
-        
+
         self._check_directory_path(self.output_path)
-        self._check_directory_path(self.pdf_image_output_path)    
-        self._check_directory_path(self.annoted_image_output_path)    
-        self._check_directory_path(self.label_output_path)
-           
+        self._check_directory_path(self.pdf_image_output_path)
+        self._check_directory_path(self.annoted_image_output_path)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+
     def extract(self,
                 pdf_file_path : str,
                 include_pages = [],
                 save_steps = False) -> ExtractedDocument:
-        
+        """_summary_
+
+        Args:
+            pdf_file_path (str): _description_
+            include_pages (list, optional): _description_. Defaults to [].
+            save_steps (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            ExtractedDocument: _description_
+        """
         # make sure the pdf file exists
         self._check_pdf_file_path(pdf_file_path)
-        
-        # make sure the output directories exist
-        if save_steps:
-            self._check_output_directory_paths()
-               
+
         fitz_doc = fitz.open(pdf_file_path)
 
         extracted_doc = ExtractedDocument(pdf_file_path)
 
         for page_number, page in enumerate(fitz_doc):
             if page_number in include_pages or len(include_pages) == 0:
-    
+
                 # load the page as a numpy.ndarray
                 pix = page.get_pixmap()
                 page_img = np.frombuffer(buffer=pix.samples, dtype=np.uint8).reshape((pix.height, pix.width, -1))
-                
+
                 # pass the page_img(numpy.ndarray) to the model to get the results
-                results = self.model(   page_img, 
-                                        size=(792,612))
-                
+                results = self.model(   page_img,
+                    size=(792,612))
+
                 extracted_page = self._extract_text_from_page(  fitz_page=page,
-                                                                page_number=page_number,
-                                                                labels=results.xyxy[0].cpu().numpy())
-        
-                extracted_doc.add_page(extracted_page) 
-    
+                page_number=page_number,
+                labels=results.xyxy[0].cpu().numpy())
+
+                extracted_doc.add_page(extracted_page)
+
+                # save the intermediate images if requested
+                if save_steps:
+                    self._save_images(  pdf_file_path,
+                    page_number,
+                    page_img,
+                    results.xyxy[0].cpu().numpy())
+
         return extracted_doc
-    
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        
-    
-    def _extract_text_from_page(self, 
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _save_images(self,
+                    pdf_file_path : str,
+                    page_number : int,
+                    page_img : np.array,
+                    labels : np.array) -> None:
+
+        page_image_filename = self._get_page_image_file_name(pdf_file_path, page_number)
+        self._save_page_image(  page_image_filename,
+                                page_img)
+
+        annotated_image_filename = self._get_annotated_image_file_name(pdf_file_path, page_number)
+        self._save_annotated_image( annotated_image_filename,
+                                    page_img,
+                                    labels)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _save_annotated_image(  self,
+                                annotated_image_filename,
+                                page_img,
+                                labels) -> None:
+
+        img = Image.fromarray(page_img)
+        img1 = ImageDraw.Draw(img)
+        for label in labels:
+            x0 = label[0]
+            y0 = label[1]
+            x1 = label[2]
+            y1 = label[3]
+            color = COLOURS[int(label[5])]
+            img1.rectangle([(x0,y0),(x1,y1)], outline = color)
+
+        annotated_image_path = os.path.join(self.annoted_image_output_path, 
+                                            annotated_image_filename)
+        img.save(annotated_image_path)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _save_page_image(self,
+         page_image_filename,
+         page_img) -> None:
+
+        page_image_path = os.path.join(self.pdf_image_output_path, page_image_filename)
+        Image.fromarray(page_img).save(page_image_path)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _get_page_image_file_name(  self,
+                                    pdf_file_path : str,
+                                    page_number : int) -> str:
+        pdf_file_name = pdf_file_path.split('/')[-1].split('.')[0]
+
+        page_image_file_name = pdf_file_name+'_page_'+str(page_number)+'_image.png'
+
+        return page_image_file_name
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _get_annotated_image_file_name( self,
+                                        pdf_file_path : str,
+                                        page_number : int) -> str:
+
+        pdf_file_name = pdf_file_path.split('/')[-1].split('.')[0]
+
+        annotated_image_file_name = pdf_file_name+'_page_'+str(page_number)+'_annotated.png'
+
+        return annotated_image_file_name
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _extract_text_from_page(self,
                                 fitz_page : fitz.Page,
                                 page_number : int,
                                 labels : np.array) -> DocumentPage:
-        
+
         bb_list = generate_bounding_boxes(labels)
-        
+
         extracted_page = DocumentPage(page_number)
-            
+
         for bb in bb_list:
             extracted_page.add_text_block(  text=clean_text(fitz_page.get_textbox(bb.get_rect())),
-                                            conf=bb.confidence,
-                                            label=bb.label)
-           
+           conf=bb.confidence,
+           label=bb.label)
+
         return extracted_page
-    
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+
     def _display_image(self):
         # display annotated image to screen
         # results.print()
-        # r_img = results.render()       
+        # r_img = results.render()
         # cv2.imshow("Image", r_img[0])
-        # cv2.waitKey(0)  
+        # cv2.waitKey(0)
         pass
-    
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    def _get_bounding_boxes_from_np_array(  self,
-                                            labels : np.array,
-                                            sort_boxes = True,
-                                            clean_boxes = True) -> list:              
-        bounding_boxes = []
-
-        # labels = [ labelled_bb ]
-        # labelled_bb  = [xmin, ymin, xmax, ymax, confidence, class]
-        for labelled_bb in labels:
-            bounding_boxes.append(self._generate_bounding_boxes(labelled_bb))
-       
-        if sort_boxes:
-            bounding_boxes.sort()
-
-        if clean_boxes:
-            bounding_boxes = self._clean_boxes(bounding_boxes)
-        
-        return bounding_boxes
