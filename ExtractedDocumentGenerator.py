@@ -121,7 +121,7 @@ class ExtractedBoxGenerator:
                 # load the page as a numpy.ndarray
                 pix = page.get_pixmap()
                 page_img = np.frombuffer(buffer=pix.samples, dtype=np.uint8).reshape((pix.height, pix.width, -1))
-                
+                               
                 # pass the page_img(numpy.ndarray) to the model to get the results
                 results = self.model(   page_img, 
                                         size=(792,612))
