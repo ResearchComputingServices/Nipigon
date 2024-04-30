@@ -45,7 +45,7 @@ def clean_text(original_text : str) -> str:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class ExtractedBoxGenerator:
+class ExtractedDocumentGenerator:
     
     def __init__(   self,
                     path_to_weights = DEFAULT_MODEL_WEIGHTS_PATH,
@@ -121,10 +121,10 @@ class ExtractedBoxGenerator:
                 # load the page as a numpy.ndarray
                 pix = page.get_pixmap()
                 page_img = np.frombuffer(buffer=pix.samples, dtype=np.uint8).reshape((pix.height, pix.width, -1))
-                               
+                              
                 # pass the page_img(numpy.ndarray) to the model to get the results
-                results = self.model(   page_img, 
-                                        size=(792,612))
+                results = self.model(   page_img,
+                                        size=(pix.height, pix.width))
                 
                 extracted_page = self._extract_text_from_page(  fitz_page=page,
                                                                 page_number=page_number,
