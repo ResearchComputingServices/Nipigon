@@ -1,7 +1,0 @@
-data/label_files/*
-data/page_images/*
-__pycache__/
-*.log
-.old/
-.output/
-output.json
