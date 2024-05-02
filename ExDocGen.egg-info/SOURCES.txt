@@ -1,0 +1,14 @@
+LICENSE
+README.md
+setup.py
+ExDocGen/BoundingBox.py
+ExDocGen/ExtractedDocument.py
+ExDocGen/ExtractedDocumentGenerator.py
+ExDocGen/__init__.py
+ExDocGen/example.py
+ExDocGen/setup.py
+ExDocGen/test.py
+ExDocGen.egg-info/PKG-INFO
+ExDocGen.egg-info/SOURCES.txt
+ExDocGen.egg-info/dependency_links.txt
+ExDocGen.egg-info/top_level.txt

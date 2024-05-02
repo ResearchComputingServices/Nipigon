@@ -5,12 +5,12 @@ import torch
 from PIL import Image, ImageDraw
 import fitz
 
-from BoundingBox import generate_bounding_boxes
-from ExtractedDocument import ExtractedDocument, DocumentPage
+from .BoundingBox import generate_bounding_boxes
+from .ExtractedDocument import ExtractedDocument, DocumentPage
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-DEFAULT_MODEL_WEIGHTS_PATH = './weights/best.pt'
+DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+DEFAULT_MODEL_WEIGHTS_PATH = os.path.join(DIR_PATH,'weights/best.pt')
 DEFAULT_MODEL_LOCATION = 'ultralytics/yolov5'
 DEFAULT_MODEL_TYPE = 'custom'
 
@@ -167,6 +167,9 @@ COLOURS = ['red','blue','green','orange','purple',
 'springgreen']
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
 
 def clean_text(original_text : str) -> str:
     """this function returns cleaned version of the input string with new

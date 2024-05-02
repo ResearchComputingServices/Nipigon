@@ -1,4 +1,4 @@
-from ExtractedDocumentGenerator import ExtractedDocumentGenerator
+from ExDocGen.ExtractedDocumentGenerator import ExtractedDocumentGenerator
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

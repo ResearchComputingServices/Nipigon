@@ -1,0 +1,5 @@
+Metadata-Version: 2.1
+Name: ExDocGen
+Version: 0.0.1
+Summary: Performs intelligent text extraction from highly structured PDF documents.
+License-File: LICENSE
