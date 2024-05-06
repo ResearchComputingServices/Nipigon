@@ -8,7 +8,7 @@ def main():
     
     doc_gen = ExtractedDocumentGenerator()
     
-    extract_doc = doc_gen.extract(pdf_file_path)
+    extract_doc = doc_gen.extract_from_path(pdf_file_path)
 
     extract_doc.save_as_json('output.json')
 

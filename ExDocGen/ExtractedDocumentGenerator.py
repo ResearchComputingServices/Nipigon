@@ -1,4 +1,5 @@
 import os
+import io
 
 import numpy as np
 import torch
@@ -107,26 +108,12 @@ class ExtractedDocumentGenerator:
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def extract(self,
-                pdf_file_path : str,
-                include_pages = [],
-                save_steps = False) -> ExtractedDocument:
-        """_summary_
-
-        Args:
-            pdf_file_path (str): _description_
-            include_pages (list, optional): _description_. Defaults to [].
-            save_steps (bool, optional): _description_. Defaults to False.
-
-        Returns:
-            ExtractedDocument: _description_
-        """
-        # make sure the pdf file exists
-        self._check_pdf_file_path(pdf_file_path)
-
-        fitz_doc = fitz.open(pdf_file_path)
-
-        extracted_doc = ExtractedDocument(pdf_file_path)
+    def _extract(   self,
+                    fitz_doc : fitz.Document,
+                    include_pages = [],
+                    output_path = None) -> ExtractedDocument:
+        
+        extracted_doc = ExtractedDocument(fitz_doc.name)
 
         for page_number, page in enumerate(fitz_doc):
             if page_number in include_pages or len(include_pages) == 0:
@@ -137,7 +124,7 @@ class ExtractedDocumentGenerator:
 
                 # pass the page_img(numpy.ndarray) to the model to get the results
                 results = self.model(   page_img,
-                    size=(792,612))
+                                        size=(792,612))
 
                 extracted_page = self._extract_text_from_page(  fitz_page=page,
                 page_number=page_number,
@@ -146,21 +133,60 @@ class ExtractedDocumentGenerator:
                 extracted_doc.add_page(extracted_page)
 
                 # save the intermediate images if requested
-                if save_steps:
-                    self._save_images(  pdf_file_path,
-                    page_number,
-                    page_img,
-                    results.xyxy[0].cpu().numpy())
+                if output_path != None:
+                    self._save_images(  output_path,
+                                        page_number,
+                                        page_img,
+                                        results.xyxy[0].cpu().numpy())
 
         return extracted_doc
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _save_images(self,
-                    pdf_file_path : str,
-                    page_number : int,
-                    page_img : np.array,
-                    labels : np.array) -> None:
+    def extract_from_stream(self,
+                            pdf_file_stream : io.BytesIO,
+                            include_pages = [],
+                            output_path = None) -> ExtractedDocument:
+        
+        fitz_doc = fitz.open('pdf',io.BytesIO(pdf_file_stream))
+
+        return self._extract(fitz_doc=fitz_doc,
+                             include_pages=include_pages,
+                             output_path=output_path) 
+
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def extract_from_path(  self,
+                            pdf_file_path : str,
+                            include_pages = [],
+                            output_path = None) -> ExtractedDocument:
+        """_summary_
+
+        Args:
+            pdf_file_path (str): _description_
+            include_pages (list, optional): _description_. Defaults to [].
+            save_steps (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            ExtractedDocument: _description_
+        """
+
+        # make sure the pdf file exists
+        self._check_pdf_file_path(pdf_file_path)
+        fitz_doc = fitz.open(pdf_file_path)
+
+        return self._extract(fitz_doc=fitz_doc,
+                             include_pages=include_pages,
+                             output_path=output_path)        
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _save_images(   self,
+                        pdf_file_path : str,
+                        page_number : int,
+                        page_img : np.array,
+                        labels : np.array) -> None:
 
         page_image_filename = self._get_page_image_file_name(pdf_file_path, page_number)
         self._save_page_image(  page_image_filename,
@@ -170,6 +196,7 @@ class ExtractedDocumentGenerator:
         self._save_annotated_image( annotated_image_filename,
                                     page_img,
                                     labels)
+        
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _save_annotated_image(  self,
