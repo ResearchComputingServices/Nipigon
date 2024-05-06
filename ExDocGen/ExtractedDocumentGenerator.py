@@ -128,8 +128,8 @@ class ExtractedDocumentGenerator:
                                         size=(792,612))
 
                 extracted_page = self._extract_text_from_page(  fitz_page=page,
-                page_number=page_number,
-                labels=results.xyxy[0].cpu().numpy())
+                                                                page_number=page_number,
+                                                                labels=results.xyxy[0].cpu().numpy())
 
                 extracted_doc.add_page(extracted_page)
 
@@ -229,12 +229,28 @@ class ExtractedDocumentGenerator:
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    def _get_page_number_str(self, 
+                             page_number : int) -> str:
+
+        page_number_str = ''
+        
+        if page_number < 10:
+            page_number_str = '00'+str(page_number_str)
+        elif page_number < 100:
+            page_number_str = '0'+str(page_number_str)
+        else:
+            page_number_str = (page_number_str)
+        
+        return page_number_str
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def _get_page_image_file_name(  self,
                                     pdf_file_path : str,
                                     page_number : int) -> str:
         pdf_file_name = pdf_file_path.split('/')[-1].split('.')[0]
 
-        page_image_file_name = pdf_file_name+'_page_'+str(page_number)+'_image.png'
+        page_image_file_name = pdf_file_name+'_page_'+self._get_page_number_str(page_number)+'_image.png'
 
         return page_image_file_name
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -245,7 +261,7 @@ class ExtractedDocumentGenerator:
 
         pdf_file_name = pdf_file_path.split('/')[-1].split('.')[0]
 
-        annotated_image_file_name = pdf_file_name+'_page_'+str(page_number)+'_annotated.png'
+        annotated_image_file_name = pdf_file_name+'_page_'+self._get_page_number_str(page_number)+'_annotated.png'
 
         return annotated_image_file_name
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -261,8 +277,8 @@ class ExtractedDocumentGenerator:
 
         for bb in bb_list:
             extracted_page.add_text_block(  text=clean_text(fitz_page.get_textbox(bb.get_rect())),
-           conf=bb.confidence,
-           label=bb.label)
+                                            conf=bb.confidence,
+                                            label=bb.label)
 
         return extracted_page
 
