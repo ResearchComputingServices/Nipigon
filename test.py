@@ -9,7 +9,7 @@ def main():
     doc_gen = ExtractedDocumentGenerator()
     extracted_doc = doc_gen.extract_from_path(pdf_file_path=pdf_file_path,
                                     include_pages=[],
-                                    output_path='test')
+                                    output_name='test')
 
     print(f'The file {pdf_file_path} has {extracted_doc.num_pages} pages in it')
 

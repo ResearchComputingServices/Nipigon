@@ -174,7 +174,7 @@ class ExtractedDocument:
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_json_dict(self) -> dict:
+    def get_json_dict(self) -> dict:
         """Convert the DataSet into a json dictionary
 
         Returns:
@@ -206,7 +206,7 @@ class ExtractedDocument:
     def display(self) -> None:
         """Display the contents of the ExtractedDocument to the screen
         """
-        pprint(self._get_json_dict())
+        pprint(self.get_json_dict())
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -236,6 +236,6 @@ class ExtractedDocument:
             file_path (str): File path to save DataSet
         """
         with open(file_path, "w+") as final:
-            json.dump(self._get_json_dict(), final)
+            json.dump(self.get_json_dict(), final)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

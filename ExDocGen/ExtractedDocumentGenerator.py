@@ -111,11 +111,12 @@ class ExtractedDocumentGenerator:
     def _extract(   self,
                     fitz_doc : fitz.Document,
                     include_pages = [],
-                    output_path = None) -> ExtractedDocument:
+                    output_name = None) -> ExtractedDocument:
         
         extracted_doc = ExtractedDocument(fitz_doc.name)
 
         for page_number, page in enumerate(fitz_doc):
+            
             if page_number in include_pages or len(include_pages) == 0:
 
                 # load the page as a numpy.ndarray
@@ -133,8 +134,8 @@ class ExtractedDocumentGenerator:
                 extracted_doc.add_page(extracted_page)
 
                 # save the intermediate images if requested
-                if output_path != None:
-                    self._save_images(  output_path,
+                if output_name != None:
+                    self._save_images(  output_name,
                                         page_number,
                                         page_img,
                                         results.xyxy[0].cpu().numpy())
@@ -146,13 +147,13 @@ class ExtractedDocumentGenerator:
     def extract_from_stream(self,
                             pdf_file_stream : io.BytesIO,
                             include_pages = [],
-                            output_path = None) -> ExtractedDocument:
+                            output_name = None) -> ExtractedDocument:
         
         fitz_doc = fitz.open('pdf',io.BytesIO(pdf_file_stream))
 
         return self._extract(fitz_doc=fitz_doc,
                              include_pages=include_pages,
-                             output_path=output_path) 
+                             output_name=output_name) 
 
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -160,7 +161,7 @@ class ExtractedDocumentGenerator:
     def extract_from_path(  self,
                             pdf_file_path : str,
                             include_pages = [],
-                            output_path = None) -> ExtractedDocument:
+                            output_name = None) -> ExtractedDocument:
         """_summary_
 
         Args:
@@ -178,7 +179,7 @@ class ExtractedDocumentGenerator:
 
         return self._extract(fitz_doc=fitz_doc,
                              include_pages=include_pages,
-                             output_path=output_path)        
+                             output_name=output_name)        
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
