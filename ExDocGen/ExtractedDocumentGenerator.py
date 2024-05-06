@@ -235,11 +235,11 @@ class ExtractedDocumentGenerator:
         page_number_str = ''
         
         if page_number < 10:
-            page_number_str = '00'+str(page_number_str)
+            page_number_str = '00'+str(page_number)
         elif page_number < 100:
-            page_number_str = '0'+str(page_number_str)
+            page_number_str = '0'+str(page_number)
         else:
-            page_number_str = (page_number_str)
+            page_number_str = str(page_number)
         
         return page_number_str
 
