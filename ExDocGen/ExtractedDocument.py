@@ -20,6 +20,22 @@ class color:
    END = '\033[0m'
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+@dataclass
+class DocumentSentence:
+    """
+    Sentence or sentence fragment extracted from PDF
+    """
+    def __init__(self,
+                 text : str):
+
+        self.text = text.strip()
+        self.conf = 1.
+        self.label = 'UNKNOWN'
+
+    def __str__(self) -> str:
+        return self.text
+    
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 @dataclass
 class DocumentTextBlock:
@@ -39,19 +55,47 @@ class DocumentTextBlock:
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def __str__(self):
+        
         return f'conf: {self.conf} label: {self.label}\n' + self.text
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @property
     def text(self) -> str:
-        return ('\n'.join(self.sentences)).strip()
+        
+        text = ''
+        for sentence in self.sentences:
+            text = text + str(sentence) + ' '
+        
+        text = text + '\n'
+        
+        return text
+    
+        
+    
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
+    @property   
+    def text_labelled(self) -> str:
+        
+        text = ''
+        for sentence in self.sentences:
+            text = text + str(sentence) + f' **[{sentence.label}, {sentence.conf}]** '
+        
+        text = text + '\n'
+        
+        return text
+    
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _split_sentences(self,
                          text) -> list:
         seg = pysbd.Segmenter(language='en', clean=False)
-        return seg.segment(text)
+        
+        sentences = []
+        for sentence in seg.segment(text):
+            sentences.append(DocumentSentence(sentence))
+        
+        return sentences
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -93,9 +137,9 @@ class DocumentPage:
 
     def __next__(self):
         if self.current_block_num < len(self.document_text_blocks):
-            current_page = self.document_text_blocks[self.current_block_num]
+            current_block = self.document_text_blocks[self.current_block_num]
             self.current_block_num += 1
-            return current_page
+            return current_block
         else:
             raise StopIteration
 
@@ -145,6 +189,16 @@ class DocumentPage:
 
         for text_block in self.document_text_blocks:
             page_text += '**' + text_block.label + '**' + ' : ' +text_block.text + '\n\n'
+
+        return page_text
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    def get_labelled_text_full(self) -> str:
+        page_text = ''
+
+        for text_block in self.document_text_blocks:
+            page_text += '**' + text_block.label + '**' + ' : ' +text_block.text_labelled + '\n\n'
 
         return page_text
 
@@ -223,7 +277,15 @@ class ExtractedDocument:
         """
         return len(self.document_pages)
 
-
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    @property
+    def num_text_blocks(self) -> int:
+        num_blocks = 0
+        
+        for page in self.document_pages:
+            num_blocks += page.num_text_blocks
+        
+        return num_blocks
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
