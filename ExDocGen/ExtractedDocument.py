@@ -20,6 +20,7 @@ class color:
    END = '\033[0m'
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 @dataclass
 class DocumentSentence:
     """
@@ -34,6 +35,14 @@ class DocumentSentence:
 
     def __str__(self) -> str:
         return self.text
+    
+    def to_dict(self) -> dict:
+
+        json_dict =  {  'text' : self.text,
+                        'conf' : self.conf,
+                        'label' : self.label}
+
+        return json_dict
     
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -70,9 +79,7 @@ class DocumentTextBlock:
         text = text + '\n'
         
         return text
-    
-        
-    
+           
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
     @property   
     def text_labelled(self) -> str:
@@ -111,7 +118,7 @@ class DocumentTextBlock:
                         'sentences' : []}
 
         for sentence in self.sentences:
-            json_dict['sentences'].append(sentence)
+            json_dict['sentences'].append(sentence.to_dict())
 
         return json_dict
 
