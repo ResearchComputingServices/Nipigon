@@ -1,16 +1,19 @@
 import os
 import io
+from pprint import pprint
 
+import pandas as pd 
 import numpy as np
 import torch
 from PIL import Image, ImageDraw
 import fitz
 
-from .BoundingBox import generate_bounding_boxes
+from .BoundingBox import generate_bounding_boxes, BoundingBox
 from .ExtractedDocument import ExtractedDocument, DocumentPage
 from .Colours import COLOURS
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DEFAULT_MODEL_WEIGHTS_PATH = os.path.join(DIR_PATH,'weights/best.pt')
 DEFAULT_MODEL_LOCATION = 'ultralytics/yolov5'
@@ -253,6 +256,7 @@ class ExtractedDocumentGenerator:
         page_image_file_name = pdf_file_name+'_page_'+self._get_page_number_str(page_number)+'_image.png'
 
         return page_image_file_name
+    
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _get_annotated_image_file_name( self,
@@ -264,8 +268,21 @@ class ExtractedDocumentGenerator:
         annotated_image_file_name = pdf_file_name+'_page_'+self._get_page_number_str(page_number)+'_annotated.png'
 
         return annotated_image_file_name
+    
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    
+    def _extract_regular_text(  self,
+                                fitz_page : fitz.Page,
+                                rect : fitz.Rect) -> str:
+        
+        return fitz_page.get_textbox(rect)
+    
+    def _extract_table_text(self,
+                            fitz_page : fitz.Page,
+                            rect : fitz.Rect) -> str:
+        
+        return ''
+       
     def _extract_text_from_page(self,
                                 fitz_page : fitz.Page,
                                 page_number : int,
@@ -274,12 +291,18 @@ class ExtractedDocumentGenerator:
         bb_list = generate_bounding_boxes(labels)
 
         extracted_page = DocumentPage(page_number)
-
-        for bb in bb_list:
-            extracted_page.add_text_block(  text=clean_text(fitz_page.get_textbox(bb.get_rect())),
+        
+        for bb in bb_list:           
+            
+            if bb.label == 'Table':            
+                bb_text = self._extract_table_text(fitz_page, bb.get_rect()) 
+            else:     
+                bb_text = self._extract_regular_text(fitz_page, bb.get_rect())                 
+                                         
+            extracted_page.add_text_block(  text=clean_text(bb_text),
                                             conf=bb.confidence,
-                                            label=bb.label)
-
+                                            label=bb.label )
+    
         return extracted_page
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,0 +1,7 @@
+
+.env/
+.output/
+.vscode/
+ExDocGen/__pycache__/
+__pycache__/
+output.json

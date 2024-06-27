@@ -167,6 +167,7 @@ class DocumentPage:
         return len(self.document_text_blocks)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
     def add_text_block( self,
                         text : str,
                         conf = 0.,
@@ -179,6 +180,14 @@ class DocumentPage:
 
         self.document_text_blocks.append(DocumentTextBlock(text, conf, label))
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def add_table(self,
+                  tables : list,
+                  conf : float,
+                  label : str) -> None:
+        pass
+        
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_text(self) -> str:
