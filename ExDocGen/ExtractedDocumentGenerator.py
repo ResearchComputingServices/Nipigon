@@ -1,7 +1,7 @@
 import os
 import io
-from pprint import pprint
 
+from pprint import pprint
 import pandas as pd 
 import numpy as np
 import torch
@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw
 import fitz
 
 from .BoundingBox import generate_bounding_boxes, BoundingBox
+from .TableExtractor import TableExtractor
 from .ExtractedDocument import ExtractedDocument, DocumentPage
 from .Colours import COLOURS
 
@@ -67,6 +68,8 @@ class ExtractedDocumentGenerator:
         self._load_model(   path_to_weights=path_to_weights,
                             model_type=model_type,
                             model_path=model_path)
+        
+        self.table_extractor = TableExtractor()
 
         self.output_path = output_path
         self.pdf_image_output_path =  os.path.join(self.output_path, PDF_IMAGE_DIR_PATH)
@@ -74,7 +77,7 @@ class ExtractedDocumentGenerator:
         self._check_output_directory_paths()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    
     def _load_model(self,
                     path_to_weights = DEFAULT_MODEL_WEIGHTS_PATH,
                     model_path = DEFAULT_MODEL_LOCATION,
@@ -228,6 +231,7 @@ class ExtractedDocumentGenerator:
          page_img) -> None:
 
         page_image_path = os.path.join(self.pdf_image_output_path, page_image_filename)
+        print(page_image_path)
         Image.fromarray(page_img).save(page_image_path)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -277,11 +281,22 @@ class ExtractedDocumentGenerator:
         
         return fitz_page.get_textbox(rect)
     
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
     def _extract_table_text(self,
                             fitz_page : fitz.Page,
                             rect : fitz.Rect) -> str:
         
+        table_pixmap = fitz_page.get_pixmap(clip=rect)
+        table_pixmap.save('table.png')
+        
+        table_img = np.frombuffer(buffer=table_pixmap.samples, dtype=np.uint8).reshape((table_pixmap.height, table_pixmap.width, -1))
+               
+        table_text = self.table_extractor.extract_table(table_img)
+        
         return ''
+    
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
        
     def _extract_text_from_page(self,
                                 fitz_page : fitz.Page,
