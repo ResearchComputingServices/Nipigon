@@ -109,6 +109,8 @@ class TableExtractor:
         
         img = Image.fromarray(image)
         
+        table_text = []
+        
         for row in cell_coordinates:
             row_text = []
             for cell in row["cells"]:
@@ -116,10 +118,9 @@ class TableExtractor:
                 cell_text = self.read_text_from_rectangle(img, cell_bbox)
                 row_text.append(cell_text)
             
-            pprint(row_text)
-            input('Press ENTER to see next row')
-            
-        return cells
+            table_text.append(row_text)
+                      
+        return table_text
    
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     

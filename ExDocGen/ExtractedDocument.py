@@ -91,13 +91,14 @@ class DocumentTextBlock:
         text = text + '\n'
         
         return text
-    
+        
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _split_sentences(self,
                          text) -> list:
-        seg = pysbd.Segmenter(language='en', clean=False)
         
+        seg = pysbd.Segmenter(language='en', clean=False)
+                
         sentences = []
         for sentence in seg.segment(text):
             sentences.append(DocumentSentence(sentence))

@@ -28,6 +28,26 @@ DEFAULT_ANNOTATED_IMAGE_OUTPUT_PATH = os.path.join(DEFAULT_ROOT_OUTPUT_PATH, ANN
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def clean_texts(original_texts : list) -> list:
+    """this function cleans the input list of strings by removing new lines and
+    non printable ascii characters
+
+    Args:
+        original_texts (list): list of strings which require cleaning
+
+    Returns:
+        list: list of cleaned strings
+    """
+    cleaned_texts = []
+
+    for text in original_texts:
+        if len(text) > 0:
+            cleaned_texts.append(clean_text(text))
+
+    return cleaned_texts
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def clean_text(original_text : str) -> str:
     """this function returns cleaned version of the input string with new
     lines and non printable ascii characters removed.
@@ -41,9 +61,14 @@ def clean_text(original_text : str) -> str:
     cleaned_text = ''
 
     for char in original_text:
-        # replace new line with space
+
+        # skip empty characters (not sure how that can happen but it does)
+        if len(char) == 0:
+            continue
+        
+        # replace newline character with space
         if ord(char) == 10:
-            char = ' '
+                char = ' '
 
         # only add printable ascii characters
         if ord(char) > 31 and ord(char) < 127:
@@ -287,14 +312,23 @@ class ExtractedDocumentGenerator:
                             fitz_page : fitz.Page,
                             rect : fitz.Rect) -> str:
         
-        table_pixmap = fitz_page.get_pixmap(clip=rect)
-        table_pixmap.save('table.png')
+        table_pixmap = fitz_page.get_pixmap(clip=rect,dpi=300)
+        # table_pixmap.save('table.png')
         
         table_img = np.frombuffer(buffer=table_pixmap.samples, dtype=np.uint8).reshape((table_pixmap.height, table_pixmap.width, -1))
-               
-        table_text = self.table_extractor.extract_table(table_img)
         
-        return ''
+        table =  self.table_extractor.extract_table(table_img)
+        
+        table_text = ''
+        for row in table:
+            for cell in row:
+                if len(cell) > 0:
+                    table_text += cell
+                    
+                    if table_text[-1] != '.':
+                        table_text += '. '
+        
+        return table_text
     
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
        
