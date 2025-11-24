@@ -35,7 +35,7 @@ class DocumentSentence:
 
     def __str__(self) -> str:
         return self.text
-    
+
     def to_dict(self) -> dict:
 
         json_dict =  {  'text' : self.text,
@@ -43,7 +43,7 @@ class DocumentSentence:
                         'label' : self.label}
 
         return json_dict
-    
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 @dataclass
@@ -64,45 +64,45 @@ class DocumentTextBlock:
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def __str__(self):
-        
+
         return f'conf: {self.conf} label: {self.label}\n' + self.text
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @property
     def text(self) -> str:
-        
+
         text = ''
         for sentence in self.sentences:
             text = text + str(sentence) + ' '
-        
+
         text = text + '\n'
-        
+
         return text
-           
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
-    @property   
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    @property
     def text_labelled(self) -> str:
-        
+
         text = ''
         for sentence in self.sentences:
             text = text + str(sentence) + f' **[{sentence.label}, {sentence.conf}]** '
-        
+
         text = text + '\n'
-        
+
         return text
-        
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _split_sentences(self,
                          text) -> list:
-        
+
         seg = pysbd.Segmenter(language='en', clean=False)
-                
+
         sentences = []
         for sentence in seg.segment(text):
             sentences.append(DocumentSentence(sentence))
-        
+
         return sentences
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -168,7 +168,7 @@ class DocumentPage:
         return len(self.document_text_blocks)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+
     def add_text_block( self,
                         text : str,
                         conf = 0.,
@@ -188,7 +188,7 @@ class DocumentPage:
                   conf : float,
                   label : str) -> None:
         pass
-        
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def get_text(self) -> str:
@@ -198,9 +198,9 @@ class DocumentPage:
             page_text += text_block.text + '\n'
 
         return page_text
-    
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+
     def get_labelled_text(self) -> str:
         page_text = ''
 
@@ -210,7 +210,20 @@ class DocumentPage:
         return page_text
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+
+    def get_text_of_type(self,
+                         requested_type : str) -> str:
+
+        text_of_type = []
+
+        for text_block in self.document_text_blocks:
+            if text_block.label == requested_type:
+                text_of_type.append(text_block.text)
+
+        return text_of_type
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def get_labelled_text_full(self) -> str:
         page_text = ''
 
@@ -298,10 +311,10 @@ class ExtractedDocument:
     @property
     def num_text_blocks(self) -> int:
         num_blocks = 0
-        
+
         for page in self.document_pages:
             num_blocks += page.num_text_blocks
-        
+
         return num_blocks
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -319,7 +332,7 @@ class ExtractedDocument:
         for page in self.document_pages:
             if page.page_number == requested_page_num:
                 return page
-            
+
         return None
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

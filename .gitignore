@@ -1,7 +1,9 @@
-
+.gitignore
 .env/
 .output/
 .vscode/
 ExDocGen/__pycache__/
 __pycache__/
 output.json
+ExDocGen.egg-info/
+Nipigon-WebApp/annotated_image.png
