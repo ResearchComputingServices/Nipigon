@@ -353,6 +353,6 @@ class ExtractedDocument:
             file_path (str): File path to save DataSet
         """
         with open(file_path, "w+") as final:
-            json.dump(self.get_json_dict(), final)
+            json.dump(self.get_json_dict(), final, indent=4, ensure_ascii=False)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -25,7 +25,7 @@ def rescale_bboxes(out_bbox, size):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def outputs_to_objects(outputs, img_size, id2label):
-    
+
     m = outputs.logits.softmax(-1).max(-1)
     pred_labels = list(m.indices.detach().cpu().numpy())[0]
     pred_scores = list(m.values.detach().cpu().numpy())[0]
@@ -83,95 +83,95 @@ class TableExtractor:
 
     def __init__(self):
         self.table_transformer = TableTransformerForObjectDetection.from_pretrained("microsoft/table-structure-recognition-v1.1-all")
-        self.reader = easyocr.Reader(['en']) 
-    
+        self.reader = easyocr.Reader(['en'])
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        
-    def extract_table(self, 
+
+    def extract_table(self,
                       image):
-        
+
         feature_extractor = DetrFeatureExtractor()
         encoding = feature_extractor(image, return_tensors="pt")
-        
+
         with torch.no_grad():
             tables = self.table_transformer(**encoding)
 
         structure_id2label = self.table_transformer.config.id2label
         structure_id2label[len(structure_id2label)] = "no object"
-        
-        table = outputs_to_objects(tables, 
-                                   image.shape, 
+
+        table = outputs_to_objects(tables,
+                                   image.shape,
                                    structure_id2label)
-        
+
         self._annotate_image(image, table)
-        
+
         cell_coordinates = get_cell_coordinates_by_row(table)
-        
+
         img = Image.fromarray(image)
-        
+
         table_text = []
-        
+
         for row in cell_coordinates:
             row_text = []
             for cell in row["cells"]:
                 cell_bbox = cell["cell"]
                 cell_text = self.read_text_from_rectangle(img, cell_bbox)
                 row_text.append(cell_text)
-            
+
             table_text.append(row_text)
-                      
+
         return table_text
-   
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+
     def read_text_from_rectangle(self,
-                                 image, 
-                                 rectangle):        
-                
+                                 image,
+                                 rectangle):
+
         # Crop the image to the specified rectangle
         # Rectangle format: (x_min, y_min, x_max, y_max)
         cropped_image = image.crop(rectangle)
-                
+
         # Read text from the cropped image
         results = self.reader.readtext(np.array(cropped_image))
-        
+
         # Extracting text from the results
         text_list = [result[1] for result in results]
-        
+
         # Joining the list of texts into a single string
         text = ' '.join(text_list)
-        
+
         return text
-    
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    def _annotate_image(self, 
-                        image, 
+
+    def _annotate_image(self,
+                        image,
                         table):
-        
-        colours =   {   'table column' :(255,0,0), 
-                        'table row' : (0,255,0), 
-                        'table column header' : (0,0,255), 
+
+        colours =   {   'table column' :(255,0,0),
+                        'table row' : (0,255,0),
+                        'table column header' : (0,0,255),
                         'table' : (255,0,255)}
-        
+
         img = Image.fromarray(image)
         img1 = ImageDraw.Draw(img)
-        
+
         for item in table:
-            
+
             if item['label'] != 'table column':
                 continue
-            
+
             bb = item['bbox']
-            
+
             x0 = bb[0]
             y0 = bb[1]
             x1 = bb[2]
             y1 = bb[3]
             color = colours[item['label']]
-                
+
             img1.rectangle([(x0,y0),(x1,y1)], outline = color)
 
-        img.save('annotated_image.png')
-        
+        # img.save('annotated_image.png')
+
      # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

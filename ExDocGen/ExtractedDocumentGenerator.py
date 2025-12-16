@@ -2,11 +2,12 @@ import os
 import io
 
 from pprint import pprint
-import pandas as pd 
+import pandas as pd
 import numpy as np
 import torch
 from PIL import Image, ImageDraw
 import fitz
+import easyocr
 
 from .BoundingBox import generate_bounding_boxes, BoundingBox
 from .TableExtractor import TableExtractor
@@ -65,7 +66,7 @@ def clean_text(original_text : str) -> str:
         # skip empty characters (not sure how that can happen but it does)
         if len(char) == 0:
             continue
-        
+
         # replace newline character with space
         if ord(char) == 10:
                 char = ' '
@@ -93,7 +94,9 @@ class ExtractedDocumentGenerator:
         self._load_model(   path_to_weights=path_to_weights,
                             model_type=model_type,
                             model_path=model_path)
-        
+
+        self.reader = easyocr.Reader(['en'])
+
         self.table_extractor = TableExtractor()
 
         self.output_path = output_path
@@ -101,8 +104,167 @@ class ExtractedDocumentGenerator:
         self.annoted_image_output_path = os.path.join(self.output_path, ANNOTATED_IMAGE_PATH)
         self._check_output_directory_paths()
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # PUBLIC FUNCTIONS
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def extract_from_stream(self,
+                            pdf_file_stream : io.BytesIO,
+                            include_pages = [],
+                            output_name = None) -> ExtractedDocument:
+
+        fitz_doc = fitz.open('pdf',io.BytesIO(pdf_file_stream))
+
+        return self._extract(fitz_doc=fitz_doc,
+                             include_pages=include_pages,
+                             output_name=output_name)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def extract_from_path(  self,
+                            pdf_file_path : str,
+                            include_pages = [],
+                            output_name = None) -> ExtractedDocument:
+        """_summary_
+
+        Args:
+            pdf_file_path (str): _description_
+            include_pages (list, optional): _description_. Defaults to [].
+            save_steps (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            ExtractedDocument: _description_
+        """
+
+        # make sure the pdf file exists
+        self._check_pdf_file_path(pdf_file_path)
+        fitz_doc = fitz.open(pdf_file_path)
+
+        return self._extract(fitz_doc=fitz_doc,
+                             include_pages=include_pages,
+                             output_name=output_name)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
+    # MAIN PRIVATE FUNCTIONS
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _extract(   self,
+                    fitz_doc : fitz.Document,
+                    include_pages = [],
+                    output_name = None) -> ExtractedDocument:
+
+        extracted_doc = ExtractedDocument(fitz_doc.name)
+
+        for page_number, page in enumerate(fitz_doc):
+
+            if page_number in include_pages or len(include_pages) == 0:
+
+                # load the page as a numpy.ndarray
+
+                zoom = 4.0  # 2× zoom → doubles pixel dimensions
+                mat = fitz.Matrix(zoom, zoom)
+                pix = page.get_pixmap(matrix=mat)
+                page_img = np.frombuffer(buffer=pix.samples, dtype=np.uint8).reshape((pix.height, pix.width, -1))
+
+                # pass the page_img(numpy.ndarray) to the documentAI model to extract the text boxes
+                results = self.model(page_img)
+
+                # extracted_page = self._extract_text_from_page(  fitz_page=page,
+                #                                                 page_number=page_number,
+                #                                                 labels=results.xyxy[0].cpu().numpy())
+
+                extracted_page = self._extract_text_from_page_image(page_img=page_img,
+                                                                    page_number=page_number,
+                                                                    labels=results.xyxy[0].cpu().numpy())
+
+                extracted_doc.add_page(extracted_page)
+
+                # save the intermediate images if requested
+                if output_name != None:
+                    print(f'Saving images for page {page_number}')
+                    self._save_images(  output_name,
+                                        page_number,
+                                        page_img,
+                                        results.xyxy[0].cpu().numpy())
+
+        return extracted_doc
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _extract_text_from_page_image(  self,
+                                        page_img : np.array,
+                                        page_number : int,
+                                        labels : np.array) -> DocumentPage:
+
+        bb_list = generate_bounding_boxes(labels)
+
+        extracted_page = DocumentPage(page_number)
+
+        for bb in bb_list:
+
+                bb_img = page_img[ int(bb.y0):int(bb.y1) , int(bb.x0):int(bb.x1) ]
+
+                result = self.reader.readtext(np.array(bb_img))
+
+                extracted_text = " ".join([item[1] for item in result])
+
+                extracted_page.add_text_block(  text=clean_text(extracted_text),
+                                                conf=bb.confidence,
+                                                label=bb.label )
+
+        return extracted_page
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _extract_text_from_page(self,
+                                fitz_page : fitz.Page,
+                                page_number : int,
+                                labels : np.array) -> DocumentPage:
+
+        bb_list = generate_bounding_boxes(labels)
+
+        extracted_page = DocumentPage(page_number)
+
+        for bb in bb_list:
+
+            if bb.label == 'Table':
+                bb_text = self._extract_table_text(fitz_page, bb.get_rect())
+            else:
+                bb_text = fitz_page.get_textbox(bb.get_rect())
+
+            extracted_page.add_text_block(  text=clean_text(bb_text),
+                                            conf=bb.confidence,
+                                            label=bb.label )
+
+        return extracted_page
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def _extract_table_text(self,
+                            fitz_page : fitz.Page,
+                            rect : fitz.Rect) -> str:
+
+        table_pixmap = fitz_page.get_pixmap(clip=rect,dpi=300)
+
+        table_img = np.frombuffer(buffer=table_pixmap.samples, dtype=np.uint8).reshape((table_pixmap.height, table_pixmap.width, -1))
+
+        table =  self.table_extractor.extract_table(table_img)
+
+        table_text = ''
+        for row in table:
+            for cell in row:
+                if len(cell) > 0:
+                    table_text += cell
+
+                    if table_text[-1] != '.':
+                        table_text += '. '
+
+        return table_text
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # HELPER FUNCTIONS
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def _load_model(self,
                     path_to_weights = DEFAULT_MODEL_WEIGHTS_PATH,
                     model_path = DEFAULT_MODEL_LOCATION,
@@ -111,6 +273,7 @@ class ExtractedDocumentGenerator:
         self.model = torch.hub.load(repo_or_dir=model_path,
                                     model=model_type,
                                     path=path_to_weights)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _check_pdf_file_path(   self,
@@ -139,81 +302,6 @@ class ExtractedDocumentGenerator:
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _extract(   self,
-                    fitz_doc : fitz.Document,
-                    include_pages = [],
-                    output_name = None) -> ExtractedDocument:
-        
-        extracted_doc = ExtractedDocument(fitz_doc.name)
-
-        for page_number, page in enumerate(fitz_doc):
-            
-            if page_number in include_pages or len(include_pages) == 0:
-
-                # load the page as a numpy.ndarray
-                pix = page.get_pixmap()
-                page_img = np.frombuffer(buffer=pix.samples, dtype=np.uint8).reshape((pix.height, pix.width, -1))
-
-                # pass the page_img(numpy.ndarray) to the model to get the results
-                results = self.model(   page_img,
-                                        size=(792,612))
-
-                extracted_page = self._extract_text_from_page(  fitz_page=page,
-                                                                page_number=page_number,
-                                                                labels=results.xyxy[0].cpu().numpy())
-
-                extracted_doc.add_page(extracted_page)
-
-                # save the intermediate images if requested
-                if output_name != None:
-                    self._save_images(  output_name,
-                                        page_number,
-                                        page_img,
-                                        results.xyxy[0].cpu().numpy())
-
-        return extracted_doc
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def extract_from_stream(self,
-                            pdf_file_stream : io.BytesIO,
-                            include_pages = [],
-                            output_name = None) -> ExtractedDocument:
-        
-        fitz_doc = fitz.open('pdf',io.BytesIO(pdf_file_stream))
-
-        return self._extract(fitz_doc=fitz_doc,
-                             include_pages=include_pages,
-                             output_name=output_name) 
-
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def extract_from_path(  self,
-                            pdf_file_path : str,
-                            include_pages = [],
-                            output_name = None) -> ExtractedDocument:
-        """_summary_
-
-        Args:
-            pdf_file_path (str): _description_
-            include_pages (list, optional): _description_. Defaults to [].
-            save_steps (bool, optional): _description_. Defaults to False.
-
-        Returns:
-            ExtractedDocument: _description_
-        """
-
-        # make sure the pdf file exists
-        self._check_pdf_file_path(pdf_file_path)
-        fitz_doc = fitz.open(pdf_file_path)
-
-        return self._extract(fitz_doc=fitz_doc,
-                             include_pages=include_pages,
-                             output_name=output_name)        
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
     def _save_images(   self,
                         pdf_file_path : str,
                         page_number : int,
@@ -228,7 +316,7 @@ class ExtractedDocumentGenerator:
         self._save_annotated_image( annotated_image_filename,
                                     page_img,
                                     labels)
-        
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _save_annotated_image(  self,
@@ -246,7 +334,7 @@ class ExtractedDocumentGenerator:
             color = COLOURS[int(label[5])]
             img1.rectangle([(x0,y0),(x1,y1)], outline = color)
 
-        annotated_image_path = os.path.join(self.annoted_image_output_path, 
+        annotated_image_path = os.path.join(self.annoted_image_output_path,
                                             annotated_image_filename)
         img.save(annotated_image_path)
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -261,18 +349,18 @@ class ExtractedDocumentGenerator:
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def _get_page_number_str(self, 
+    def _get_page_number_str(self,
                              page_number : int) -> str:
 
         page_number_str = ''
-        
+
         if page_number < 10:
             page_number_str = '00'+str(page_number)
         elif page_number < 100:
             page_number_str = '0'+str(page_number)
         else:
             page_number_str = str(page_number)
-        
+
         return page_number_str
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -285,7 +373,7 @@ class ExtractedDocumentGenerator:
         page_image_file_name = pdf_file_name+'_page_'+self._get_page_number_str(page_number)+'_image.png'
 
         return page_image_file_name
-    
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def _get_annotated_image_file_name( self,
@@ -297,62 +385,6 @@ class ExtractedDocumentGenerator:
         annotated_image_file_name = pdf_file_name+'_page_'+self._get_page_number_str(page_number)+'_annotated.png'
 
         return annotated_image_file_name
-    
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    def _extract_regular_text(  self,
-                                fitz_page : fitz.Page,
-                                rect : fitz.Rect) -> str:
-        
-        return fitz_page.get_textbox(rect)
-    
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    
-    def _extract_table_text(self,
-                            fitz_page : fitz.Page,
-                            rect : fitz.Rect) -> str:
-        
-        table_pixmap = fitz_page.get_pixmap(clip=rect,dpi=300)
-        # table_pixmap.save('table.png')
-        
-        table_img = np.frombuffer(buffer=table_pixmap.samples, dtype=np.uint8).reshape((table_pixmap.height, table_pixmap.width, -1))
-        
-        table =  self.table_extractor.extract_table(table_img)
-        
-        table_text = ''
-        for row in table:
-            for cell in row:
-                if len(cell) > 0:
-                    table_text += cell
-                    
-                    if table_text[-1] != '.':
-                        table_text += '. '
-        
-        return table_text
-    
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-       
-    def _extract_text_from_page(self,
-                                fitz_page : fitz.Page,
-                                page_number : int,
-                                labels : np.array) -> DocumentPage:
-
-        bb_list = generate_bounding_boxes(labels)
-
-        extracted_page = DocumentPage(page_number)
-        
-        for bb in bb_list:           
-            
-            if bb.label == 'Table':            
-                bb_text = self._extract_table_text(fitz_page, bb.get_rect()) 
-            else:     
-                bb_text = self._extract_regular_text(fitz_page, bb.get_rect())                 
-                                         
-            extracted_page.add_text_block(  text=clean_text(bb_text),
-                                            conf=bb.confidence,
-                                            label=bb.label )
-    
-        return extracted_page
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
